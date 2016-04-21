@@ -3,18 +3,8 @@
 
 #include "dtls.h"
 
-#define SSL_WHERE_INFO(ssl, w, flag, msg) {                \
-    if(w & flag) {                                         \
-      printf("+ %s: ", name);                              \
-      printf("%20.20s", msg);                              \
-      printf(" - %30.30s ", SSL_state_string_long(ssl));   \
-      printf(" - %5.10s ", SSL_state_string(ssl));         \
-      printf("\n");                                        \
-    }                                                      \
-  }
-
 void
-dtls_begin()
+dtls_Begin()
 {
     SSL_library_init();
     SSL_load_error_strings();
@@ -23,7 +13,7 @@ dtls_begin()
 }
 
 void
-dtls_end()
+dtls_End()
 {
     ERR_remove_state(0);
     ENGINE_cleanup();
@@ -34,8 +24,13 @@ dtls_end()
     CRYPTO_cleanup_all_ex_data();
 }
 
+static int
+_ssl_verify_peer(int ok, X509_STORE_CTX* ctx) {
+    return 1;
+}
+
 int
-ssl_ctx_init(DTLSParams* k, const char* keyname)
+dtls_InitContextFromKeystore(DTLSParams* k, const char* keyname)
 {
     int result = 0;
 
@@ -56,15 +51,7 @@ ssl_ctx_init(DTLSParams* k, const char* keyname)
     }
 
     // The client doesn't have to send it's certificate
-    SSL_CTX_set_verify(k->ctx, SSL_VERIFY_PEER, ssl_verify_peer);
-
-    // // Enable srtp
-    // result = SSL_CTX_set_tlsext_use_srtp(k->ctx, "SRTP_AES128_CM_SHA1_80");
-    // if (result != 0) {
-    //     printf("Error: cannot setup srtp.\n");
-    //     ERR_print_errors_fp(stderr);
-    //     return -3;
-    // }
+    SSL_CTX_set_verify(k->ctx, SSL_VERIFY_PEER, _ssl_verify_peer);
 
     // Load key and certificate
     char certfile[1024];
@@ -72,7 +59,7 @@ ssl_ctx_init(DTLSParams* k, const char* keyname)
     sprintf(certfile, "./%s-cert.pem", keyname);
     sprintf(keyfile, "./%s-key.pem", keyname);
 
-    // certificate file; contains also the public key
+    // Load the certificate file; contains also the public key
     result = SSL_CTX_use_certificate_file(k->ctx, certfile, SSL_FILETYPE_PEM);
     if (result != 1) {
         printf("Error: cannot load certificate file.\n");
@@ -99,62 +86,50 @@ ssl_ctx_init(DTLSParams* k, const char* keyname)
     return 0;
 }
 
-int ssl_verify_peer(int ok, X509_STORE_CTX* ctx) {
-    return 1;
+int
+dtls_InitClient(DTLSParams* params, const char *address)
+{
+    params->bio = BIO_new_ssl_connect(params->ctx);
+    if (params->bio == NULL) {
+        fprintf(stderr, "error connecting to server\n");
+        return -1;
+    }
+
+    BIO_set_conn_hostname(params->bio, address);
+    BIO_get_ssl(params->bio, &(params->ssl));
+    if (params->ssl == NULL) {
+        fprintf(stderr, "error, exit\n");
+        return -1;
+    }
+
+    SSL_set_connect_state(params->ssl);
+    SSL_set_mode(params->ssl, SSL_MODE_AUTO_RETRY);
+
+    return 0;
 }
 
 int
-ssl_init(DTLSParams* k, int isserver, info_callback cb)
+dtls_InitServer(DTLSParams* params)
 {
-    if (isserver == 0) { // if client
-        k->bio = BIO_new_ssl_connect(k->ctx);
-        if (k->bio == NULL) {
-            fprintf(stderr, "error connecting to server\n");
-        }
-
-        BIO_set_conn_hostname(k->bio, "127.0.0.1:4433");
-        BIO_get_ssl(k->bio, &(k->ssl));
-        if (k->ssl == NULL) {
-            fprintf(stderr, "error, exit\n");
-            exit(-1);
-        }
-
-        SSL_set_connect_state(k->ssl);
-        SSL_set_mode(k->ssl, SSL_MODE_AUTO_RETRY);
-        SSL_set_tlsext_host_name(k->ssl, "127.0.0.1");
-    } else {
-        k->bio = BIO_new_ssl_connect(k->ctx);
-        if (k->bio == NULL) {
-            fprintf(stderr, "error connecting with BIOs\n");
-        }
-
-        BIO_get_ssl(k->bio, &(k->ssl));
-        if (k->ssl == NULL) {
-            fprintf(stderr, "error, exit\n");
-            exit(-1);
-        }
-
-        SSL_set_accept_state(k->ssl);
+    params->bio = BIO_new_ssl_connect(params->ctx);
+    if (params->bio == NULL) {
+        fprintf(stderr, "error connecting with BIOs\n");
+        return -1;
     }
+
+    BIO_get_ssl(params->bio, &(params->ssl));
+    if (params->ssl == NULL) {
+        fprintf(stderr, "error, exit\n");
+        return -1;
+    }
+
+    SSL_set_accept_state(params->ssl);
 
     return 0;
 }
 
 void
-ssl_info_callback(const SSL* ssl, int where, int ret, const char* name)
-{
-    if (ret == 0) {
-        printf("-- krx_ssl_info_callback: error occured.\n");
-        return;
-      }
-
-      SSL_WHERE_INFO(ssl, where, SSL_CB_LOOP, "LOOP");
-      SSL_WHERE_INFO(ssl, where, SSL_CB_HANDSHAKE_START, "HANDSHAKE START");
-      SSL_WHERE_INFO(ssl, where, SSL_CB_HANDSHAKE_DONE, "HANDSHAKE DONE");
-}
-
-void
-ssl_shutdown(DTLSParams* k)
+dtls_Shutdown(DTLSParams* k)
 {
     if (k == NULL) {
         return;

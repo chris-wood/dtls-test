@@ -1,47 +1,61 @@
 #include "dtls.h"
 
-static void
-ssl_client_info_callback(const SSL* ssl, int where, int ret)
-{
-    ssl_info_callback(ssl, where, ret, "client");
-}
+#define IP_ADDRESS "127.0.0.1:4433"
 
 int
 main(int argc, char *argv[argc])
 {
     if (argc < 2) {
-        printf("usage: client <message to send to the server>\n");
+        printf("usage: client <path to file to send>\n");
         exit(-1);
     }
 
-    dtls_begin();
+    // Initialize whatever OpenSSL state is necessary to execute the DTLS protocol.
+    dtls_Begin();
 
     DTLSParams client;
 
-    if (ssl_ctx_init(&client, "client") < 0) {
+    // Initialize the DTLS context from the keystore and then create the server
+    // SSL state.
+    if (dtls_InitContextFromKeystore(&client, "client") < 0) {
         exit(EXIT_FAILURE);
     }
-    if (ssl_init(&client, 0, ssl_client_info_callback) < 0) {
+    if (dtls_InitClient(&client, IP_ADDRESS) < 0) {
         exit(EXIT_FAILURE);
     }
 
-    SSL_connect(client.ssl);
+    // Attempt to connect to the server and complete the handshake.
+    int result = SSL_connect(client.ssl);
+    if (result != 1) {
+        perror("Unable to connect to the DTLS server.\n");
+        exit(EXIT_FAILURE);
+    }
 
-    char buf[521] = { 0 } ;
-    snprintf(buf, sizeof(buf), "%s", argv[1]);
-    SSL_write(client.ssl, buf, sizeof(buf));
+    // Read the contents of the file (up to 4KB) into a buffer
+    FILE *fp = fopen(argv[1], "rb");
+    uint8_t buffer[4096] = { 0 };
+    size_t numRead = fread(buffer, 1, 4096, fp);
+
+    // Write the buffer to the server
+    int written = SSL_write(client.ssl, buffer, numRead);
+    if (written != numRead) {
+        perror("Failed to write the entire buffer.\n");
+        exit(EXIT_FAILURE);
+    }
 
     int read = -1;
     do {
-        read = SSL_read(client.ssl, buf, sizeof(buf));
+        // Read the output from the server. If it's not empty, print it.
+        read = SSL_read(client.ssl, buffer, sizeof(buffer));
         if (read > 0) {
             printf("IN[%d]: ", read);
             for (int i = 0; i < read; i++) {
-                printf("%c", buf[i]);
+                printf("%c", buffer[i]);
             }
             printf("\n");
         }
     } while (read < 0);
 
-    ssl_shutdown(&client);
+    // Teardown the link and context state.
+    dtls_Shutdown(&client);
 }
