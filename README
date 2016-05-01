@@ -1,0 +1,18 @@
+# Setup
+
+Generate client and server key pairs as follows:
+
+    openssl req -x509 -newkey rsa:2048 -days 3650 -nodes -keyout client-key.pem -out client-cert.pem
+
+    openssl req -x509 -newkey rsa:2048 -days 3650 -nodes -keyout server-key.pem -out server-cert.pem
+
+# Usage:
+
+Run the client and server as follows:
+
+    ./server 
+    ./client <message to send to the server>
+
+The server just echoes back whatever it receives from the client. Both sides
+display the resultant plaintext as a character string.
+
