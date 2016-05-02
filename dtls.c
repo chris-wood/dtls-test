@@ -25,7 +25,8 @@ dtls_End()
 }
 
 static int
-_ssl_verify_peer(int ok, X509_STORE_CTX* ctx) {
+_ssl_verify_peer(int ok, X509_STORE_CTX* ctx) 
+{
     return 1;
 }
 
