@@ -10,9 +10,9 @@
 #include <openssl/engine.h>
 
 typedef struct {
-  SSL_CTX *ctx;
-  SSL *ssl;
-  BIO *bio;
+    SSL_CTX *ctx;
+    SSL *ssl;
+    BIO *bio;
 } DTLSParams;
 
 void dtls_Begin();
