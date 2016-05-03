@@ -1,6 +1,6 @@
 #include "dtls.h"
 
-#define IP_ADDRESS "127.0.0.1:4433"
+#define IP_PORT "127.0.0.1:4433"
 
 int
 main(int argc, char *argv[argc])
@@ -20,7 +20,7 @@ main(int argc, char *argv[argc])
     if (dtls_InitContextFromKeystore(&client, "client") < 0) {
         exit(EXIT_FAILURE);
     }
-    if (dtls_InitClient(&client, IP_ADDRESS) < 0) {
+    if (dtls_InitClient(&client, IP_PORT) < 0) {
         exit(EXIT_FAILURE);
     }
 

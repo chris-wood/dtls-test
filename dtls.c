@@ -25,26 +25,26 @@ dtls_End()
 }
 
 static int
-_ssl_verify_peer(int ok, X509_STORE_CTX* ctx) 
+_ssl_verify_peer(int ok, X509_STORE_CTX* ctx)
 {
     return 1;
 }
 
 int
-dtls_InitContextFromKeystore(DTLSParams* k, const char* keyname)
+dtls_InitContextFromKeystore(DTLSParams* params, const char* keyname)
 {
     int result = 0;
 
     // Create a new context using DTLS
-    k->ctx = SSL_CTX_new(DTLSv1_method());
-    if (k->ctx == NULL) {
+    params->ctx = SSL_CTX_new(DTLSv1_method());
+    if (params->ctx == NULL) {
         printf("Error: cannot create SSL_CTX.\n");
         ERR_print_errors_fp(stderr);
         return -1;
     }
 
     // Set our supported ciphers
-    result = SSL_CTX_set_cipher_list(k->ctx, "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
+    result = SSL_CTX_set_cipher_list(params->ctx, "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
     if (result != 1) {
         printf("Error: cannot set the cipher list.\n");
         ERR_print_errors_fp(stderr);
@@ -52,7 +52,7 @@ dtls_InitContextFromKeystore(DTLSParams* k, const char* keyname)
     }
 
     // The client doesn't have to send it's certificate
-    SSL_CTX_set_verify(k->ctx, SSL_VERIFY_PEER, _ssl_verify_peer);
+    SSL_CTX_set_verify(params->ctx, SSL_VERIFY_PEER, _ssl_verify_peer);
 
     // Load key and certificate
     char certfile[1024];
@@ -61,7 +61,7 @@ dtls_InitContextFromKeystore(DTLSParams* k, const char* keyname)
     sprintf(keyfile, "./%s-key.pem", keyname);
 
     // Load the certificate file; contains also the public key
-    result = SSL_CTX_use_certificate_file(k->ctx, certfile, SSL_FILETYPE_PEM);
+    result = SSL_CTX_use_certificate_file(params->ctx, certfile, SSL_FILETYPE_PEM);
     if (result != 1) {
         printf("Error: cannot load certificate file.\n");
         ERR_print_errors_fp(stderr);
@@ -69,7 +69,7 @@ dtls_InitContextFromKeystore(DTLSParams* k, const char* keyname)
     }
 
     // Load private key
-    result = SSL_CTX_use_PrivateKey_file(k->ctx, keyfile, SSL_FILETYPE_PEM);
+    result = SSL_CTX_use_PrivateKey_file(params->ctx, keyfile, SSL_FILETYPE_PEM);
     if (result != 1) {
         printf("Error: cannot load private key file.\n");
         ERR_print_errors_fp(stderr);
@@ -77,7 +77,7 @@ dtls_InitContextFromKeystore(DTLSParams* k, const char* keyname)
     }
 
     // Check if the private key is valid
-    result = SSL_CTX_check_private_key(k->ctx);
+    result = SSL_CTX_check_private_key(params->ctx);
     if (result != 1) {
         printf("Error: checking the private key failed. \n");
         ERR_print_errors_fp(stderr);
@@ -136,13 +136,13 @@ dtls_Shutdown(DTLSParams* k)
         return;
     }
 
-    if (k->ctx != NULL) {
-        SSL_CTX_free(k->ctx);
-        k->ctx = NULL;
+    if (params->ctx != NULL) {
+        SSL_CTX_free(params->ctx);
+        params->ctx = NULL;
     }
 
-    if (k->ssl != NULL) {
-        SSL_free(k->ssl);
-        k->ssl = NULL;
+    if (params->ssl != NULL) {
+        SSL_free(params->ssl);
+        params->ssl = NULL;
     }
 }
