@@ -130,9 +130,9 @@ dtls_InitServer(DTLSParams* params)
 }
 
 void
-dtls_Shutdown(DTLSParams* k)
+dtls_Shutdown(DTLSParams* params)
 {
-    if (k == NULL) {
+    if (params == NULL) {
         return;
     }
 
