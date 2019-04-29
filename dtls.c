@@ -12,10 +12,42 @@ dtls_Begin()
     OpenSSL_add_all_algorithms();
 }
 
+static void
+dtls_check_openssl_version_and_cleanup_thread_state(unsigned long ver)
+{
+    // OpenSSL >= 1.1.0 final, no need to call ether ERR_remove_thread_state(NULL) or ERR_remove_state(0)
+    // OpenSSL >= 1.1.0-pre6 should be the same as OpenSSL >= 1.1.0
+    if (ver >= 0x1010000fL) {
+        return;
+    }
+    if (ver >= 0x10100006L) {
+        return;
+    }
+
+// OpenSSL 1.1.0-pre4/pre5 has a different API prototype (which was later changed back again in pre6)
+#if (OPENSSL_VERSION_NUMBER == 0x10100004L || OPENSSL_VERSION_NUMBER == 0x10100005L) && \
+    !defined(LIBRESSL_VERSION_NUMBER) && \
+    !defined(OPENSSL_IS_BORINGSSL)
+    ERR_remove_thread_state();
+#endif
+
+// OpenSSL before 1.1.0-pre3 and after 0.9.9(development branch before 1.0.0-pre1 was release)
+#if 0x00909000L < OPENSSL_VERSION_NUMBER && \
+    OPENSSL_VERSION_NUMBER <= 0x10100003L
+    ERR_remove_thread_state(NULL);
+#endif
+
+// openssl before 0.9.9-dev(0x00909000)
+// must use old API ERR_remove_state(0)
+#if (OPENSSL_VERSION_NUMBER <= 0x00909000L) || defined(USE_WOLFSSL) // not tested, but should work...
+    ERR_remove_state(0);
+#endif
+}
+
 void
 dtls_End()
 {
-    ERR_remove_state(0);
+    dtls_check_openssl_version_and_cleanup_thread_state(OPENSSL_VERSION_NUMBER);
     ENGINE_cleanup();
     CONF_modules_unload(1);
     ERR_free_strings();
