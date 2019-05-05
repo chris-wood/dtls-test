@@ -68,7 +68,7 @@ dtls_InitContextFromKeystore(DTLSParams* params, const char* keyname)
     int result = 0;
 
     // Create a new context using DTLS
-    params->ctx = SSL_CTX_new(DTLSv1_method());
+    params->ctx = SSL_CTX_new(DTLS_method());
     if (params->ctx == NULL) {
         printf("Error: cannot create SSL_CTX.\n");
         ERR_print_errors_fp(stderr);
