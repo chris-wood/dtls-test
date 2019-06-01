@@ -90,7 +90,7 @@ main()
                 printf("\n");
 
                 // Echo the message back to the client
-                SSL_write(server.ssl, outbuf, sizeof(outbuf));
+                SSL_write(server.ssl, outbuf, read);
             }
         }
 
